@@ -2,8 +2,12 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Portail Mairie - Yerres</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <style>
@@ -14,11 +18,11 @@
             --dark-text: #333; 
         }
         
-        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--light-bg); color: var(--dark-text); }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--light-bg); color: var(--dark-text); -webkit-tap-highlight-color: transparent;}
         
-        header { background-color: var(--city-blue); color: white; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        header h1 { margin: 0; font-size: 1.4rem; display: flex; align-items: center; gap: 10px; }
-        .live-badge { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; animation: pulse 2s infinite; white-space: nowrap;}
+        header { background-color: var(--city-blue); color: white; padding: 15px 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; position: sticky; top: 0; z-index: 1000;}
+        header h1 { margin: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 10px; }
+        .live-badge { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
 
         main { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
@@ -35,52 +39,24 @@
         .map-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 5px;}
         .map-header h2 { margin: 0; font-size: 1.2rem; color: var(--city-blue); }
         
-        .plan-container { position: relative; width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; background: #eee;}
-        .plan-container img { width: 100%; display: block; }
-        
-        .zone-overlay {
-            position: absolute;
-            background-color: rgba(39, 174, 96, 0.2); 
-            border: 2px dashed var(--eco-green);
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-        .zone-overlay:hover, .zone-overlay.active-touch {
-            background-color: rgba(39, 174, 96, 0.5); 
-            box-shadow: 0 0 15px rgba(39, 174, 96, 0.8);
-        }
+        /* Conteneur de la carte Leaflet */
+        #map-container { height: 60vh; min-height: 400px; width: 100%; border-radius: 8px; background-color: #e0e0e0; z-index: 1;}
 
-        /* Tooltip adapté pour mobile */
-        #tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 12px 15px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            pointer-events: none;
-            display: none;
-            z-index: 100;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            width: 220px; /* Largeur fixe pour éviter qu'il sorte de l'écran iPhone */
-            max-width: 80vw;
-            transform: translate(-50%, -110%); /* Centre l'infobulle au-dessus du doigt */
-        }
-        #tooltip h4 { margin: 0 0 5px 0; color: #FFD700; font-size: 1rem;}
-        #tooltip p { margin: 4px 0; }
+        /* Personnalisation des popups Leaflet pour matcher avec le design */
+        .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .leaflet-popup-content { font-family: 'Segoe UI', sans-serif; font-size: 0.95rem; margin: 15px; line-height: 1.5;}
+        .popup-title { margin: 0 0 10px 0; color: #d35400; font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 5px;}
         
-        /* Réglages iPhone spécifiques */
         @media (max-width: 600px) {
-            header h1 { font-size: 1.2rem; }
-            .kpi-card { padding: 15px; }
-            .kpi-value { font-size: 1.8rem; }
+            header h1 { font-size: 1.1rem; }
+            #map-container { height: 50vh; }
         }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>🏛️ Mairie de Yerres</h1>
+        <h1>🏛️ Mairie - Suivi Rue Paul Doumer</h1>
         <div class="live-badge">🔴 EN DIRECT</div>
     </header>
 
@@ -107,77 +83,67 @@
 
         <div class="map-section">
             <div class="map-header">
-                <h2>📍 Plan interactif (Rue Paul Doumer)</h2>
-                <span style="color: #7f8c8d; font-size: 0.85rem;">Touchez une zone pour le détail</span>
+                <h2>📍 Plan d'exécution interactif</h2>
+                <span style="color: #7f8c8d; font-size: 0.85rem;">Pincez pour zoomer, touchez les zones.</span>
             </div>
             
-            <div class="plan-container" id="plan-container">
-                <img src="plan_yerres.jpg" alt="Plan de la Rue Paul Doumer">
-                
-                <div class="zone-overlay" style="top: 20%; left: 5%; width: 25%; height: 50%;" 
-                     data-titre="Zone Ouest - P1" data-debut="11/03/2024" data-fin="15/03/2024" data-bruit="🔴 Oui (Marteaux-piqueurs)"></div>
-                
-                <div class="zone-overlay" style="top: 35%; left: 35%; width: 30%; height: 40%;" 
-                     data-titre="Zone Centre - P2" data-debut="18/03/2024" data-fin="22/03/2024" data-bruit="🟢 Non (Tirage de câbles)"></div>
-                
-                <div class="zone-overlay" style="top: 15%; left: 70%; width: 25%; height: 60%;" 
-                     data-titre="Zone Est - P3" data-debut="25/03/2024" data-fin="29/03/2024" data-bruit="🟠 Modéré (Levage)"></div>
-
-                <div id="tooltip"></div>
-            </div>
+            <div id="map-container"></div>
         </div>
     </main>
 
     <script>
-        const zones = document.querySelectorAll('.zone-overlay');
-        const tooltip = document.getElementById('tooltip');
-        const planContainer = document.getElementById('plan-container');
+        // --- 1. CONFIGURATION DU PLAN FLUIDE (LEAFLET) ---
+        
+        // On crée la carte avec le mode L.CRS.Simple (Spécial images plates / pas de coordonnées GPS)
+        const map = L.map('map-container', {
+            crs: L.CRS.Simple,
+            minZoom: -2,
+            maxZoom: 2,
+            zoomControl: true
+        });
 
-        // Fonction pour afficher l'infobulle
-        function showTooltip(zone, clientX, clientY) {
-            tooltip.style.display = 'block';
-            tooltip.innerHTML = `
-                <h4>${zone.dataset.titre}</h4>
-                <p><b>📅 Début :</b> ${zone.dataset.debut}</p>
-                <p><b>🏁 Fin prévue :</b> ${zone.dataset.fin}</p>
-                <hr style="border-color:#555; margin:8px 0;">
-                <p><b>🔊 Nuisance :</b><br> ${zone.dataset.bruit}</p>
+        // Dimensions virtuelles du plan (Hauteur x Largeur estimée du panorama)
+        const bounds = [[0, 0], [1000, 3500]];
+        
+        // On place votre image de fond ! (Assurez-vous qu'elle s'appelle bien plan_yerres.jpg)
+        const image = L.imageOverlay('plan_yerres.jpg', bounds).addTo(map);
+        
+        // On cadre la vue pour voir tout le plan d'un coup au chargement
+        map.fitBounds(bounds);
+
+        // --- 2. CRÉATION DES ZONES INTERACTIVES ---
+        
+        // Le style graphique des zones
+        const styleZone = { color: '#27ae60', weight: 3, dashArray: '8, 8', fillColor: '#27ae60', fillOpacity: 0.2 };
+        const styleZoneActive = { color: '#e67e22', weight: 4, dashArray: '0', fillColor: '#e67e22', fillOpacity: 0.4 };
+
+        // Fonction pour créer une zone avec sa popup
+        function creerZone(coordonnees, titre, debut, fin, bruit) {
+            const zone = L.rectangle(coordonnees, styleZone).addTo(map);
+            
+            // Le contenu de la bulle d'info
+            const htmlPopup = `
+                <h4 class="popup-title">${titre}</h4>
+                <b>📅 Début :</b> ${debut}<br>
+                <b>🏁 Fin prévue :</b> ${fin}<br>
+                <hr style="border: 0; border-top: 1px solid #ddd; margin: 10px 0;">
+                <b>🔊 Nuisances :</b><br> ${bruit}
             `;
             
-            const rect = planContainer.getBoundingClientRect();
-            // On centre l'infobulle par rapport au point touché/cliqué
-            tooltip.style.left = (clientX - rect.left) + 'px';
-            tooltip.style.top = (clientY - rect.top) + 'px';
+            zone.bindPopup(htmlPopup);
+            
+            // Effets visuels quand on touche/clique sur la zone
+            zone.on('popupopen', () => zone.setStyle(styleZoneActive));
+            zone.on('popupclose', () => zone.setStyle(styleZone));
         }
 
-        zones.forEach(zone => {
-            // Gestion PC (Souris)
-            zone.addEventListener('mouseenter', (e) => showTooltip(zone, e.clientX, e.clientY));
-            zone.addEventListener('mousemove', (e) => showTooltip(zone, e.clientX, e.clientY));
-            zone.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+        // Ajout des 3 zones sur le plan (Les coordonnées sont [Y-bas, X-gauche], [Y-haut, X-droite])
+        creerZone([[300, 150], [800, 900]], "🚧 Zone Ouest - Phase 1", "11/03/2024", "15/03/2024", "🔴 Oui (Marteaux-piqueurs)");
+        creerZone([[250, 1050], [650, 1950]], "⚡ Zone Centre - Phase 2", "18/03/2024", "22/03/2024", "🟢 Non (Tirage de câbles)");
+        creerZone([[250, 2100], [850, 2850]], "🏗️ Zone Est - Phase 3", "25/03/2024", "29/03/2024", "🟠 Modéré (Levage)");
 
-            // Gestion Smartphone (Tactile)
-            zone.addEventListener('touchstart', (e) => {
-                e.preventDefault(); // Empêche le comportement par défaut du double tap
-                const touch = e.touches[0];
-                
-                // Retirer l'effet visuel des autres zones
-                zones.forEach(z => z.classList.remove('active-touch'));
-                zone.classList.add('active-touch');
-                
-                showTooltip(zone, touch.clientX, touch.clientY);
-            });
-        });
 
-        // Cacher l'infobulle si on touche en dehors des zones sur le plan
-        planContainer.addEventListener('touchstart', (e) => {
-            if (!e.target.classList.contains('zone-overlay')) {
-                tooltip.style.display = 'none';
-                zones.forEach(z => z.classList.remove('active-touch'));
-            }
-        });
-
-        // --- CONNEXION MQTT ---
+        // --- 3. CONNEXION MQTT (RÉCEPTION DU BILAN CARBONE) ---
         const BROKER_WS_URL = 'wss://broker.hivemq.com:8884/mqtt';
         const TOPIC_CAMION = 'votre-entreprise/flotte/camion-1/journalier';
         const client = mqtt.connect(BROKER_WS_URL);
@@ -187,21 +153,30 @@
         client.on('message', (topic, message) => {
             try {
                 const data = JSON.parse(message.toString());
-                if (data.co2Prevu) {
+                
+                if (data.co2Prevu !== undefined) {
                     const kpiPrevu = document.getElementById('kpi-prevu');
                     const kpiSub = document.getElementById('kpi-prevu-sub');
                     
                     kpiPrevu.innerHTML = `${data.co2Prevu} <span style="font-size: 1rem;">kg CO₂e</span>`;
                     
-                    kpiPrevu.style.color = '#e74c3c'; 
-                    kpiSub.style.color = '#e74c3c';
-                    kpiSub.innerText = "⚠️ Mis à jour par le Chef de Chantier";
-                    
-                    setTimeout(() => {
-                        kpiPrevu.style.color = 'var(--eco-green)';
-                        kpiSub.style.color = '#95a5a6';
-                        kpiSub.innerText = "Basé sur le dernier planning";
-                    }, 2500);
+                    if (data.co2Prevu === "0.0") {
+                        // Cas d'une purge réseau envoyée par le chef
+                        kpiPrevu.style.color = '#7f8c8d'; 
+                        kpiSub.style.color = '#7f8c8d';
+                        kpiSub.innerText = "Données réinitialisées";
+                    } else {
+                        // Cas d'une mise à jour normale
+                        kpiPrevu.style.color = '#e74c3c'; 
+                        kpiSub.style.color = '#e74c3c';
+                        kpiSub.innerText = "⚠️ Planning actualisé à l'instant par le Chef";
+                        
+                        setTimeout(() => {
+                            kpiPrevu.style.color = 'var(--eco-green)';
+                            kpiSub.style.color = '#95a5a6';
+                            kpiSub.innerText = "Calcul basé sur le matériel, transport et GNR";
+                        }, 2500);
+                    }
                 }
             } catch (e) { console.error(e); }
         });
