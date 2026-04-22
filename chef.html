@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Espace Chef - Planning & Carbone</title>
+    <title>Faytek - Espace Chef</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root { --construction-yellow: #FFD700; --dark-grey: #333; --light-bg: #F4F4F4; --success-green: #2ecc71; --eco-green: #27ae60;}
@@ -15,7 +15,6 @@
         .status-dot.connected { background-color: var(--success-green); }
         
         main { max-width: 800px; margin: 20px auto; padding: 0 15px; padding-bottom: 90px; }
-        
         .card { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px; }
         .card h2 { margin-top: 0; font-size: 1.1rem; border-bottom: 2px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
         
@@ -25,13 +24,9 @@
         
         .flex-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
         .flex-row > div { flex: 1 1 150px; } 
-        
         .btn-add { background: var(--dark-grey); color: white; border: none; padding: 13px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; flex: 1 1 100%;}
         
-        /* Bouton Reset Rouge */
         .btn-reset { background: #ffeaea; border: 1px solid #e74c3c; color: #e74c3c; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: background 0.2s;}
-        .btn-reset:active { background: #ffcccc; }
-
         .day-block { margin-bottom: 15px; padding: 10px; background: #fafafa; border-left: 4px solid var(--construction-yellow); border-radius: 4px;}
         .day-title { font-weight: bold; margin-bottom: 5px; color: #444; }
         .task-item { display: flex; justify-content: space-between; font-size: 0.95rem; padding: 4px 0; align-items: center; }
@@ -42,19 +37,18 @@
         .co2-summary { font-size: 0.9rem; font-weight: bold; text-align: center; color: #444; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;}
         .co2-materiel-list { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: #555; background: #f9f9f9; border-radius: 4px; padding: 10px;}
         .co2-materiel-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #ddd; }
-        .co2-materiel-item:last-child { border-bottom: none; }
         .co2-valeur { font-weight: bold; color: var(--eco-green); }
 
         .action-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; z-index: 100; box-sizing: border-box;}
         .btn-main { background-color: var(--construction-yellow); color: var(--dark-grey); border: none; padding: 15px 20px; border-radius: 30px; font-weight: bold; font-size: 1rem; text-transform: uppercase; cursor: pointer; width: 100%; max-width: 400px;}
-
-        @media (min-width: 600px) { .btn-add { flex: 0 1 auto; } }
     </style>
 </head>
 <body>
-
     <header>
-        <h1>👷‍♂️ Planning Chef</h1>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="logo.jpg" alt="Faytek" style="height: 45px; object-fit: contain;">
+            <h1 style="margin: 0;">Planning Chef</h1>
+        </div>
         <div><span id="status-dot" class="status-dot"></span></div>
     </header>
 
@@ -62,23 +56,20 @@
         <section class="card">
             <h2>Planifier des travaux</h2>
             <div class="form-group flex-row">
-                <div>
-                    <label>Jour</label>
-                    <select id="select-jour">
-                        <option value="Aujourd'hui">Aujourd'hui</option>
-                        <option value="Demain">Demain</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group flex-row">
                 <div style="flex: 3 1 200px;">
-                    <label>Travaux</label>
-                    <select id="select-travail">
-                        <option value="mat">Pose d'un mât d'éclairage</option>
-                        <option value="tirage">Tirage ligne souterraine (50m)</option>
-                    </select>
+                    <label>Jour / Travaux</label>
+                    <div style="display: flex; gap: 5px;">
+                        <select id="select-jour" style="flex: 1;">
+                            <option value="Aujourd'hui">Auj.</option>
+                            <option value="Demain">Dem.</option>
+                        </select>
+                        <select id="select-travail" style="flex: 3;">
+                            <option value="mat">Pose d'un mât d'éclairage</option>
+                            <option value="tirage">Tirage ligne souterraine (50m)</option>
+                        </select>
+                    </div>
                 </div>
-                <div style="flex: 1 1 80px;">
+                <div style="flex: 1 1 60px;">
                     <label>Qté</label>
                     <input type="number" id="input-qty" value="1" min="1">
                 </div>
@@ -87,13 +78,8 @@
         </section>
 
         <section class="card">
-            <h2>
-                Planning du Chantier
-                <button class="btn-reset" onclick="reinitialiserTout()">🗑️ Purger</button>
-            </h2>
-            <div id="planning-display">
-                <p style="color: #888; font-size: 0.9rem;">Aucun travaux planifié.</p>
-            </div>
+            <h2>Planning Chantier <button class="btn-reset" onclick="reinitialiserTout()">🗑️ Purger</button></h2>
+            <div id="planning-display"><p style="color: #888; font-size: 0.9rem;">Aucun travaux planifié.</p></div>
         </section>
 
         <section class="card eco-card">
@@ -111,20 +97,13 @@
                     <input type="number" id="input-gnr" value="5" min="0" oninput="calculerCarbone()">
                 </div>
             </div>
-
             <div class="co2-total"><span id="total-co2">0</span> kg CO₂e</div>
-            <div class="co2-summary" id="summary-co2">Transport: 0 kg | Engins: 0 kg | Matériel: 0 kg</div>
-
-            <label style="color: #666; font-size: 0.85rem; text-transform: uppercase;">Détail matériel :</label>
-            <ul class="co2-materiel-list" id="details-materiel-list">
-                <li style="color: #aaa; text-align: center; padding: 10px 0;">Ajoutez des travaux.</li>
-            </ul>
+            <div class="co2-summary" id="summary-co2">Transport: 0 kg | Engins: 0 kg | Mat.: 0 kg</div>
+            <ul class="co2-materiel-list" id="details-materiel-list"></ul>
         </section>
     </main>
 
-    <div class="action-bar">
-        <button class="btn-main" onclick="calculerEtEnvoyer()">Envoyer (Ouvrier & Mairie)</button>
-    </div>
+    <div class="action-bar"><button class="btn-main" onclick="calculerEtEnvoyer()">Envoyer à l'équipe</button></div>
 
     <script>
         const BROKER_WS_URL = 'wss://broker.hivemq.com:8884/mqtt';
@@ -133,128 +112,78 @@
         client.on('connect', () => { document.getElementById('status-dot').classList.add('connected'); });
 
         const CATALOGUE_BASE = {
-            'mat': [
-                { nom: "Câble 3G2.5", quantite: 10, unite: "m", co2: 0.8 }, 
-                { nom: "Visses d'ancrage", quantite: 5, unite: "x", co2: 0.2 },
-                { nom: "Pelle", quantite: 1, unite: "x", co2: 0 },
-                { nom: "Béton rapide", quantite: 2, unite: "sac", co2: 2.1 },
-                { nom: "Grue", quantite: 1, unite: "x", co2: 0 }
-            ],
-            'tirage': [
-                { nom: "Gaine TPC 63", quantite: 50, unite: "m", co2: 1.25 },
-                { nom: "Aiguille", quantite: 1, unite: "x", co2: 0 },
-                { nom: "Sable", quantite: 3, unite: "sac", co2: 0.5 }
-            ]
+            'mat': [{nom:"Câble 3G2.5", q:10, u:"m", c:0.8}, {nom:"Visses d'ancrage", q:5, u:"x", c:0.2}, {nom:"Béton", q:2, u:"sac", c:2.1}, {nom:"Pelle", q:1, u:"x", c:0}],
+            'tirage': [{nom:"Gaine TPC 63", q:50, u:"m", c:1.25}, {nom:"Sable", q:3, u:"sac", c:0.5}, {nom:"Aiguille", q:1, u:"x", c:0}]
         };
 
-        const FACTEURS_CO2 = { transport: 1.2, gnr: 2.67 };
-        let planningMacro = { "Aujourd'hui": [], "Demain": [] };
+        let planningMacro = {"Aujourd'hui": [], "Demain": []};
         let currentTotalCO2 = 0;
 
         function ajouterAuPlanning() {
-            const jour = document.getElementById('select-jour').value;
-            const selectTravail = document.getElementById('select-travail');
-            const qty = parseInt(document.getElementById('input-qty').value);
-            planningMacro[jour].push({ key: selectTravail.value, label: selectTravail.options[selectTravail.selectedIndex].text, qty: qty });
+            const j = document.getElementById('select-jour').value;
+            const t = document.getElementById('select-travail');
+            planningMacro[j].push({key: t.value, label: t.options[t.selectedIndex].text, qty: parseInt(document.getElementById('input-qty').value)});
             afficherPlanning();
         }
 
-        function supprimerTache(jour, index) {
-            planningMacro[jour].splice(index, 1);
-            afficherPlanning();
-        }
-
-        // --- LA MAGIE DU RESET RÉSEAU ---
         function reinitialiserTout() {
-            if(confirm("Attention: Cela va effacer l'écran de l'ouvrier et remettre le bilan de la mairie à zéro. Confirmer ?")) {
-                // 1. On vide l'écran du chef
-                planningMacro = { "Aujourd'hui": [], "Demain": [] };
+            if(confirm("Purger toutes les données (Thomas + Mairie) ?")) {
+                planningMacro = {"Aujourd'hui": [], "Demain": []};
                 document.getElementById('input-gnr').value = 5;
-                currentTotalCO2 = 0;
                 afficherPlanning();
-
-                // 2. On envoie un payload VIDE avec 'retain: true' pour écraser la mémoire du broker
-                const payloadReset = {
-                    planning: {}, // Planning vide
-                    co2Prevu: "0.0" // CO2 à Zéro
-                };
-
-                client.publish(TOPIC_CAMION, JSON.stringify(payloadReset), { retain: true, qos: 1 }, (err) => {
-                    if (!err) alert("🧹 Nettoyage réseau effectué !");
-                });
+                client.publish(TOPIC_CAMION, JSON.stringify({planning:{}, co2Prevu:"0.0"}), {retain:true, qos:1});
             }
         }
 
         function afficherPlanning() {
-            const display = document.getElementById('planning-display');
-            display.innerHTML = '';
-            let vide = true;
-            for (let jour in planningMacro) {
-                if (planningMacro[jour].length > 0) {
-                    vide = false;
-                    let html = `<div class="day-block"><div class="day-title">${jour}</div>`;
-                    planningMacro[jour].forEach((tache, index) => {
-                        html += `<div class="task-item"><span>${tache.qty}x ${tache.label}</span> 
-                                 <button class="btn-remove" onclick="supprimerTache('${jour}', ${index})">×</button></div>`;
-                    });
-                    html += `</div>`;
-                    display.innerHTML += html;
+            const d = document.getElementById('planning-display'); d.innerHTML = ''; let vide = true;
+            for (let j in planningMacro) {
+                if (planningMacro[j].length > 0) {
+                    vide = false; let h = `<div class="day-block"><div class="day-title">${j}</div>`;
+                    planningMacro[j].forEach((t, i) => { h += `<div class="task-item"><span>${t.qty}x ${t.label}</span><button class="btn-remove" onclick="planningMacro['${j}'].splice(${i},1); afficherPlanning();">×</button></div>`; });
+                    d.innerHTML += h + `</div>`;
                 }
             }
-            if(vide) display.innerHTML = '<p style="color: #888; font-size: 0.9rem;">Aucun travaux planifié.</p>';
+            if(vide) d.innerHTML = '<p style="color:#888; font-size:0.9rem;">Aucun travaux.</p>';
             calculerCarbone();
         }
 
         function calculerCarbone() {
-            let co2MaterielTotal = 0;
-            let materielAggrege = {}; 
-            for (let jour in planningMacro) {
-                planningMacro[jour].forEach(tache => {
-                    CATALOGUE_BASE[tache.key].forEach(item => {
-                        let co2Item = (item.quantite * tache.qty * item.co2);
-                        if (!materielAggrege[item.nom]) materielAggrege[item.nom] = 0;
-                        materielAggrege[item.nom] += co2Item;
-                        co2MaterielTotal += co2Item;
+            let matCO2 = 0; let agg = {};
+            for (let j in planningMacro) {
+                planningMacro[j].forEach(t => {
+                    CATALOGUE_BASE[t.key].forEach(i => {
+                        let c = (i.q * t.qty * i.c); matCO2 += c;
+                        agg[i.nom] = (agg[i.nom] || 0) + c;
                     });
                 });
             }
             const km = parseFloat(document.getElementById('select-chantier').value) || 0;
             const gnr = parseFloat(document.getElementById('input-gnr').value) || 0;
-            currentTotalCO2 = co2MaterielTotal + (km * FACTEURS_CO2.transport) + (gnr * FACTEURS_CO2.gnr);
-
+            currentTotalCO2 = matCO2 + (km * 1.2) + (gnr * 2.67);
             document.getElementById('total-co2').innerText = currentTotalCO2.toFixed(1);
-            document.getElementById('summary-co2').innerText = `Transport: ${(km * FACTEURS_CO2.transport).toFixed(1)}kg | Engins: ${(gnr * FACTEURS_CO2.gnr).toFixed(1)}kg | Mat.: ${co2MaterielTotal.toFixed(1)}kg`;
-
-            let detailsHtml = '';
-            for (const [nom, co2] of Object.entries(materielAggrege)) {
-                if (co2 > 0) detailsHtml += `<li class="co2-materiel-item"><span>${nom}</span><span class="co2-valeur">${co2.toFixed(1)} kg</span></li>`;
-            }
-            document.getElementById('details-materiel-list').innerHTML = detailsHtml === '' ? '<li style="color: #aaa; text-align: center; padding: 10px 0;">Aucun impact matériel calculé.</li>' : detailsHtml;
+            document.getElementById('summary-co2').innerText = `Transp: ${(km*1.2).toFixed(1)}kg | Engins: ${(gnr*2.67).toFixed(1)}kg | Mat: ${matCO2.toFixed(1)}kg`;
+            let det = ''; for (const [n, c] of Object.entries(agg)) if(c>0) det += `<li class="co2-materiel-item"><span>${n}</span><span class="co2-valeur">${c.toFixed(1)} kg</span></li>`;
+            document.getElementById('details-materiel-list').innerHTML = det;
         }
 
         function calculerEtEnvoyer() {
-            let payloadJours = {};
-            let hasData = false;
-            for (let jour in planningMacro) {
-                if (planningMacro[jour].length > 0) {
-                    hasData = true;
-                    let tachesMacros = [];
-                    let materielAggrege = {}; 
-                    planningMacro[jour].forEach(tache => {
-                        tachesMacros.push(`${tache.qty}x ${tache.label}`);
-                        CATALOGUE_BASE[tache.key].forEach(item => {
-                            if(!materielAggrege[item.nom]) materielAggrege[item.nom] = { nom: item.nom, unite: item.unite, quantite: 0, checked: false };
-                            materielAggrege[item.nom].quantite += (item.quantite * tache.qty);
+            let p = {}; let has = false;
+            for (let j in planningMacro) {
+                if (planningMacro[j].length > 0) {
+                    has = true; let tArr = []; let mAgg = {};
+                    planningMacro[j].forEach(t => {
+                        tArr.push(`${t.qty}x ${t.label}`);
+                        CATALOGUE_BASE[t.key].forEach(i => {
+                            if(!mAgg[i.nom]) mAgg[i.nom] = {nom:i.nom, unite:i.u, quantite:0, checked:false};
+                            mAgg[i.nom].quantite += (i.q * t.qty);
                         });
                     });
-                    payloadJours[jour] = { taches: tachesMacros, materiel: Object.values(materielAggrege) };
+                    p[j] = {taches: tArr, materiel: Object.values(mAgg)};
                 }
             }
-            if(!hasData) { alert("Rien à envoyer."); return; }
-
-            client.publish(TOPIC_CAMION, JSON.stringify({ planning: payloadJours, co2Prevu: currentTotalCO2.toFixed(1) }), { retain: true, qos: 1 }, (err) => {
-                if (!err) alert("✅ Envoyé à l'ouvrier et à la Mairie !");
-            });
+            if(!has) return alert("Rien à envoyer.");
+            client.publish(TOPIC_CAMION, JSON.stringify({planning:p, co2Prevu:currentTotalCO2.toFixed(1)}), {retain:true, qos:1}, () => alert("✅ Transmis !"));
         }
         calculerCarbone();
     </script>
