@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portail Mairie - Yerres</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+    <style>
+        :root { 
+            --city-blue: #1e3799; 
+            --eco-green: #27ae60; 
+            --light-bg: #f8f9fa; 
+            --dark-text: #333; 
+        }
+        
+        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--light-bg); color: var(--dark-text); }
+        
+        header { background-color: var(--city-blue); color: white; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        header h1 { margin: 0; font-size: 1.4rem; display: flex; align-items: center; gap: 10px; }
+        .live-badge { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; animation: pulse 2s infinite; white-space: nowrap;}
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+        main { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .kpi-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-top: 4px solid var(--city-blue); }
+        .kpi-card.eco { border-top-color: var(--eco-green); }
+        .kpi-title { font-size: 0.9rem; color: #7f8c8d; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; }
+        .kpi-value { font-size: 2rem; font-weight: bold; margin: 0; color: var(--city-blue); transition: color 0.3s; }
+        .kpi-card.eco .kpi-value { color: var(--eco-green); }
+        .kpi-sub { font-size: 0.85rem; color: #95a5a6; margin-top: 5px; transition: color 0.3s; }
+
+        .map-section { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .map-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 5px;}
+        .map-header h2 { margin: 0; font-size: 1.2rem; color: var(--city-blue); }
+        
+        .plan-container { position: relative; width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; background: #eee;}
+        .plan-container img { width: 100%; display: block; }
+        
+        .zone-overlay {
+            position: absolute;
+            background-color: rgba(39, 174, 96, 0.2); 
+            border: 2px dashed var(--eco-green);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .zone-overlay:hover, .zone-overlay.active-touch {
+            background-color: rgba(39, 174, 96, 0.5); 
+            box-shadow: 0 0 15px rgba(39, 174, 96, 0.8);
+        }
+
+        /* Tooltip adapté pour mobile */
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            width: 220px; /* Largeur fixe pour éviter qu'il sorte de l'écran iPhone */
+            max-width: 80vw;
+            transform: translate(-50%, -110%); /* Centre l'infobulle au-dessus du doigt */
+        }
+        #tooltip h4 { margin: 0 0 5px 0; color: #FFD700; font-size: 1rem;}
+        #tooltip p { margin: 4px 0; }
+        
+        /* Réglages iPhone spécifiques */
+        @media (max-width: 600px) {
+            header h1 { font-size: 1.2rem; }
+            .kpi-card { padding: 15px; }
+            .kpi-value { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🏛️ Mairie de Yerres</h1>
+        <div class="live-badge">🔴 EN DIRECT</div>
+    </header>
+
+    <main>
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-title">Phasage en cours</div>
+                <div class="kpi-value">Phase 1</div>
+                <div class="kpi-sub">Zone Ouest (Secteur 1)</div>
+            </div>
+            
+            <div class="kpi-card eco">
+                <div class="kpi-title">Carbone Réalisé (Depuis 11/03)</div>
+                <div class="kpi-value">420 <span style="font-size: 1rem;">kg CO₂e</span></div>
+                <div class="kpi-sub">Validé</div>
+            </div>
+
+            <div class="kpi-card eco">
+                <div class="kpi-title">Prévision Carbone (En direct)</div>
+                <div class="kpi-value" id="kpi-prevu">0 <span style="font-size: 1rem;">kg CO₂e</span></div>
+                <div class="kpi-sub" id="kpi-prevu-sub">En attente du chef de chantier...</div>
+            </div>
+        </div>
+
+        <div class="map-section">
+            <div class="map-header">
+                <h2>📍 Plan interactif (Rue Paul Doumer)</h2>
+                <span style="color: #7f8c8d; font-size: 0.85rem;">Touchez une zone pour le détail</span>
+            </div>
+            
+            <div class="plan-container" id="plan-container">
+                <img src="plan_yerres.jpg" alt="Plan de la Rue Paul Doumer">
+                
+                <div class="zone-overlay" style="top: 20%; left: 5%; width: 25%; height: 50%;" 
+                     data-titre="Zone Ouest - P1" data-debut="11/03/2024" data-fin="15/03/2024" data-bruit="🔴 Oui (Marteaux-piqueurs)"></div>
+                
+                <div class="zone-overlay" style="top: 35%; left: 35%; width: 30%; height: 40%;" 
+                     data-titre="Zone Centre - P2" data-debut="18/03/2024" data-fin="22/03/2024" data-bruit="🟢 Non (Tirage de câbles)"></div>
+                
+                <div class="zone-overlay" style="top: 15%; left: 70%; width: 25%; height: 60%;" 
+                     data-titre="Zone Est - P3" data-debut="25/03/2024" data-fin="29/03/2024" data-bruit="🟠 Modéré (Levage)"></div>
+
+                <div id="tooltip"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const zones = document.querySelectorAll('.zone-overlay');
+        const tooltip = document.getElementById('tooltip');
+        const planContainer = document.getElementById('plan-container');
+
+        // Fonction pour afficher l'infobulle
+        function showTooltip(zone, clientX, clientY) {
+            tooltip.style.display = 'block';
+            tooltip.innerHTML = `
+                <h4>${zone.dataset.titre}</h4>
+                <p><b>📅 Début :</b> ${zone.dataset.debut}</p>
+                <p><b>🏁 Fin prévue :</b> ${zone.dataset.fin}</p>
+                <hr style="border-color:#555; margin:8px 0;">
+                <p><b>🔊 Nuisance :</b><br> ${zone.dataset.bruit}</p>
+            `;
+            
+            const rect = planContainer.getBoundingClientRect();
+            // On centre l'infobulle par rapport au point touché/cliqué
+            tooltip.style.left = (clientX - rect.left) + 'px';
+            tooltip.style.top = (clientY - rect.top) + 'px';
+        }
+
+        zones.forEach(zone => {
+            // Gestion PC (Souris)
+            zone.addEventListener('mouseenter', (e) => showTooltip(zone, e.clientX, e.clientY));
+            zone.addEventListener('mousemove', (e) => showTooltip(zone, e.clientX, e.clientY));
+            zone.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+
+            // Gestion Smartphone (Tactile)
+            zone.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // Empêche le comportement par défaut du double tap
+                const touch = e.touches[0];
+                
+                // Retirer l'effet visuel des autres zones
+                zones.forEach(z => z.classList.remove('active-touch'));
+                zone.classList.add('active-touch');
+                
+                showTooltip(zone, touch.clientX, touch.clientY);
+            });
+        });
+
+        // Cacher l'infobulle si on touche en dehors des zones sur le plan
+        planContainer.addEventListener('touchstart', (e) => {
+            if (!e.target.classList.contains('zone-overlay')) {
+                tooltip.style.display = 'none';
+                zones.forEach(z => z.classList.remove('active-touch'));
+            }
+        });
+
+        // --- CONNEXION MQTT ---
+        const BROKER_WS_URL = 'wss://broker.hivemq.com:8884/mqtt';
+        const TOPIC_CAMION = 'votre-entreprise/flotte/camion-1/journalier';
+        const client = mqtt.connect(BROKER_WS_URL);
+
+        client.on('connect', () => client.subscribe(TOPIC_CAMION));
+
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                if (data.co2Prevu) {
+                    const kpiPrevu = document.getElementById('kpi-prevu');
+                    const kpiSub = document.getElementById('kpi-prevu-sub');
+                    
+                    kpiPrevu.innerHTML = `${data.co2Prevu} <span style="font-size: 1rem;">kg CO₂e</span>`;
+                    
+                    kpiPrevu.style.color = '#e74c3c'; 
+                    kpiSub.style.color = '#e74c3c';
+                    kpiSub.innerText = "⚠️ Mis à jour par le Chef de Chantier";
+                    
+                    setTimeout(() => {
+                        kpiPrevu.style.color = 'var(--eco-green)';
+                        kpiSub.style.color = '#95a5a6';
+                        kpiSub.innerText = "Basé sur le dernier planning";
+                    }, 2500);
+                }
+            } catch (e) { console.error(e); }
+        });
+    </script>
+</body>
+</html>

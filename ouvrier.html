@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Thomas - Terrain</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        :root { --construction-yellow: #FFD700; --dark-grey: #333; --light-bg: #F4F4F4; --success-green: #2ecc71; --voice-blue: #3498db; }
+        body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; background-color: var(--light-bg); color: var(--dark-grey); -webkit-tap-highlight-color: transparent;}
+        
+        /* Header Fixe Mobile */
+        header { background-color: white; padding: 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--construction-yellow); position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        header h1 { margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+        .status-dot { height: 12px; width: 12px; background-color: #bbb; border-radius: 50%; display: inline-block; }
+        .status-dot.connected { background-color: var(--success-green); }
+        
+        main { padding: 15px; padding-bottom: 120px; /* Espace large en bas pour éviter la barre d'action de l'iPhone */ }
+
+        /* Bouton Vocal : Plus gros, facile à cliquer */
+        .voice-note-container { margin-bottom: 20px; }
+        .btn-voice { width: 100%; background: white; border: 2px dashed var(--voice-blue); color: var(--voice-blue); padding: 18px; border-radius: 12px; font-weight: bold; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; gap: 10px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: background 0.2s; }
+        .btn-voice:active { background: #ebf5fb; transform: scale(0.98); }
+
+        /* Onglets défilables au doigt (Swipe) */
+        .tabs-container { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 10px; margin-bottom: 20px; padding-bottom: 5px;}
+        .tabs-container::-webkit-scrollbar { display: none; } /* Cache la barre de scroll sur Chrome/Safari */
+        .tab-btn { background: #e0e0e0; border: none; padding: 12px 20px; border-radius: 25px; font-weight: bold; font-size: 1rem; color: #555; cursor: pointer; white-space: nowrap; transition: background 0.2s;}
+        .tab-btn.active { background: var(--construction-yellow); color: var(--dark-grey); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+        /* Boite noire des tâches macro */
+        .macro-box { background: var(--dark-grey); color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
+        .macro-box h3 { margin: 0 0 10px 0; font-size: 1rem; color: var(--construction-yellow); }
+        .macro-box ul { margin: 0; padding-left: 20px; font-size: 1rem; line-height: 1.4; }
+
+        /* Lignes de la Checklist adaptées au Touch */
+        #checklist-materiel { list-style: none; padding: 0; margin: 0; }
+        .check-item { background: white; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 12px; display: flex; align-items: center; padding: 18px 15px; cursor: pointer; transition: background 0.2s; }
+        .check-item:active { background-color: #f0f0f0; }
+        
+        /* Gros Checkbox pour les doigts */
+        .check-item input[type="checkbox"] { transform: scale(1.8); margin-right: 18px; accent-color: var(--success-green); pointer-events: none;}
+        
+        .check-item.loaded { border-left: 6px solid var(--success-green); opacity: 0.8; background: #fafafa;}
+        .check-item.loaded .item-text { text-decoration: line-through; color: #888; }
+        
+        .item-text { flex-grow: 1; font-size: 1.1rem; font-weight: 500;}
+        .item-qty { font-weight: bold; background: #eee; padding: 6px 10px; border-radius: 6px; font-size: 0.95rem; color: var(--dark-grey);}
+
+        /* Barre d'action fixe en bas d'écran */
+        .action-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 15px 20px; box-shadow: 0 -4px 15px rgba(0,0,0,0.08); display: flex; flex-direction: column; align-items: center; gap: 10px; box-sizing: border-box; padding-bottom: max(15px, env(safe-area-inset-bottom)); /* Gère l'encoche de l'iPhone en bas */ }
+        #progress-text { font-weight: bold; font-size: 1.05rem; }
+        .btn-main { background-color: var(--construction-yellow); color: var(--dark-grey); border: none; padding: 16px; border-radius: 30px; font-weight: bold; font-size: 1.1rem; text-transform: uppercase; cursor: pointer; width: 100%; max-width: 400px; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>👋 Salut Thomas</h1>
+        <span id="status-dot" class="status-dot"></span>
+    </header>
+
+    <main>
+        <div class="voice-note-container">
+            <button class="btn-voice" onclick="alert('🎙️ Écoute en cours... (Dictée au chef de chantier)')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                Note vocale de fin de poste
+            </button>
+        </div>
+
+        <div id="tabs-container" class="tabs-container" style="display: none;"></div>
+
+        <div id="content-area" style="display: none;">
+            <div class="macro-box">
+                <h3>Tes travaux du jour :</h3>
+                <ul id="macro-tasks"></ul>
+            </div>
+            
+            <h3 style="margin-bottom: 12px; color: #444; font-size: 1.1rem;">Dans le camion :</h3>
+            <ul id="checklist-materiel"></ul>
+        </div>
+
+        <div id="empty-state" style="text-align: center; color: #888; margin-top: 60px;">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 15px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <p style="font-size: 1.1rem;">Aucune mission reçue.<br>Bon café ! ☕</p>
+        </div>
+    </main>
+
+    <div class="action-bar" id="action-bar" style="display:none;">
+        <span id="progress-text">0 / 0 chargés</span>
+        <button id="btn-valider" class="btn-main" onclick="alert('Chargement validé et transmis au chef !')">Valider mon camion</button>
+    </div>
+
+    <script>
+        const BROKER_WS_URL = 'wss://broker.hivemq.com:8884/mqtt';
+        const TOPIC_CAMION = 'votre-entreprise/flotte/camion-1/journalier';
+
+        let planningData = {}; 
+        let currentDay = "";   
+
+        const client = mqtt.connect(BROKER_WS_URL);
+        client.on('connect', () => {
+            document.getElementById('status-dot').classList.add('connected');
+            client.subscribe(TOPIC_CAMION, { qos: 1 });
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                
+                // GESTION DU RESET : Si le planning est vide (ou non existant)
+                if (!data.planning || Object.keys(data.planning).length === 0) {
+                    afficherEcranVide();
+                    return;
+                }
+
+                planningData = data.planning;
+                const jours = Object.keys(planningData);
+                
+                if(jours.length > 0) {
+                    currentDay = jours[0]; 
+                    document.getElementById('empty-state').style.display = 'none';
+                    document.getElementById('tabs-container').style.display = 'flex';
+                    document.getElementById('content-area').style.display = 'block';
+                    document.getElementById('action-bar').style.display = 'flex';
+                    renderInterface();
+                }
+            } catch (e) { console.error("Erreur JSON", e); }
+        });
+
+        function afficherEcranVide() {
+            planningData = {};
+            document.getElementById('empty-state').style.display = 'block';
+            document.getElementById('tabs-container').style.display = 'none';
+            document.getElementById('content-area').style.display = 'none';
+            document.getElementById('action-bar').style.display = 'none';
+        }
+
+        function renderInterface() {
+            renderTabs();
+            renderChecklist();
+        }
+
+        function renderTabs() {
+            const container = document.getElementById('tabs-container');
+            container.innerHTML = '';
+            
+            Object.keys(planningData).forEach(jour => {
+                const btn = document.createElement('button');
+                btn.className = `tab-btn ${jour === currentDay ? 'active' : ''}`;
+                btn.innerText = jour;
+                btn.onclick = () => { currentDay = jour; renderInterface(); };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderChecklist() {
+            const jourData = planningData[currentDay];
+            
+            const tasksUl = document.getElementById('macro-tasks');
+            tasksUl.innerHTML = '';
+            jourData.taches.forEach(t => {
+                tasksUl.innerHTML += `<li>${t}</li>`;
+            });
+
+            const checklistUl = document.getElementById('checklist-materiel');
+            checklistUl.innerHTML = '';
+            
+            jourData.materiel.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.className = `check-item ${item.checked ? 'loaded' : ''}`;
+                
+                li.innerHTML = `
+                    <input type="checkbox" ${item.checked ? 'checked' : ''}>
+                    <span class="item-text">${item.nom}</span>
+                    <span class="item-qty">${item.quantite} ${item.unite}</span>
+                `;
+                
+                // Rendre tout le bloc cliquable (Parfait pour le doigt)
+                li.addEventListener('click', function() {
+                    toggleItem(index);
+                });
+                checklistUl.appendChild(li);
+            });
+
+            updateProgress();
+        }
+
+        function toggleItem(index) {
+            planningData[currentDay].materiel[index].checked = !planningData[currentDay].materiel[index].checked;
+            renderChecklist();
+        }
+
+        function updateProgress() {
+            const materielList = planningData[currentDay].materiel;
+            const total = materielList.length;
+            const loaded = materielList.filter(item => item.checked).length;
+
+            const progText = document.getElementById('progress-text');
+            const btnValider = document.getElementById('btn-valider');
+            
+            progText.innerText = `${loaded} / ${total} chargés pour ${currentDay}`;
+            
+            if (loaded === total && total > 0) {
+                progText.style.color = 'var(--success-green)';
+                btnValider.style.display = 'block'; 
+            } else {
+                progText.style.color = 'var(--dark-grey)';
+                btnValider.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
