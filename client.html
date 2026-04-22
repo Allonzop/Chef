@@ -3,182 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Portail Mairie - Yerres</title>
-    
+    <title>Faytek - Portail Mairie</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-
     <style>
-        :root { 
-            --city-blue: #1e3799; 
-            --eco-green: #27ae60; 
-            --light-bg: #f8f9fa; 
-            --dark-text: #333; 
-        }
-        
-        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--light-bg); color: var(--dark-text); -webkit-tap-highlight-color: transparent;}
-        
-        header { background-color: var(--city-blue); color: white; padding: 15px 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; position: sticky; top: 0; z-index: 1000;}
-        header h1 { margin: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 10px; }
-        .live-badge { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
-
+        :root { --city-blue: #1e3799; --eco-green: #27ae60; --light-bg: #f8f9fa; --dark-text: #333; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--light-bg); -webkit-tap-highlight-color: transparent; }
+        header { background: var(--city-blue); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        .live-badge { background: #e74c3c; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% {opacity:1} 50% {opacity:0.6} 100% {opacity:1} }
         main { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
-
         .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 25px; }
         .kpi-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-top: 4px solid var(--city-blue); }
         .kpi-card.eco { border-top-color: var(--eco-green); }
-        .kpi-title { font-size: 0.9rem; color: #7f8c8d; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; }
-        .kpi-value { font-size: 2rem; font-weight: bold; margin: 0; color: var(--city-blue); transition: color 0.3s; }
+        .kpi-title { font-size: 0.8rem; color: #7f8c8d; text-transform: uppercase; font-weight: bold; }
+        .kpi-value { font-size: 2rem; font-weight: bold; color: var(--city-blue); margin: 5px 0; }
         .kpi-card.eco .kpi-value { color: var(--eco-green); }
-        .kpi-sub { font-size: 0.85rem; color: #95a5a6; margin-top: 5px; transition: color 0.3s; }
-
-        .map-section { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .map-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 5px;}
-        .map-header h2 { margin: 0; font-size: 1.2rem; color: var(--city-blue); }
-        
-        /* Conteneur de la carte Leaflet */
-        #map-container { height: 60vh; min-height: 400px; width: 100%; border-radius: 8px; background-color: #e0e0e0; z-index: 1;}
-
-        /* Personnalisation des popups Leaflet pour matcher avec le design */
-        .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .leaflet-popup-content { font-family: 'Segoe UI', sans-serif; font-size: 0.95rem; margin: 15px; line-height: 1.5;}
-        .popup-title { margin: 0 0 10px 0; color: #d35400; font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 5px;}
-        
-        @media (max-width: 600px) {
-            header h1 { font-size: 1.1rem; }
-            #map-container { height: 50vh; }
-        }
+        #map-container { height: 60vh; min-height: 400px; border-radius: 12px; background: #ddd; }
+        .popup-title { color: #d35400; font-weight: bold; border-bottom: 1px solid #eee; margin-bottom: 5px; }
     </style>
 </head>
 <body>
-
     <header>
-        <h1>🏛️ Mairie - Suivi Rue Paul Doumer</h1>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="background: white; padding: 5px 10px; border-radius: 8px; display: flex;">
+                <img src="logo.jpg" alt="Faytek" style="height: 40px; object-fit: contain;">
+            </div>
+            <h1 style="margin: 0; font-size: 1.3rem;">Mairie de Yerres</h1>
+        </div>
         <div class="live-badge">🔴 EN DIRECT</div>
     </header>
 
     <main>
         <div class="kpi-grid">
-            <div class="kpi-card">
-                <div class="kpi-title">Phasage en cours</div>
-                <div class="kpi-value">Phase 1</div>
-                <div class="kpi-sub">Zone Ouest (Secteur 1)</div>
-            </div>
-            
-            <div class="kpi-card eco">
-                <div class="kpi-title">Carbone Réalisé (Depuis 11/03)</div>
-                <div class="kpi-value">420 <span style="font-size: 1rem;">kg CO₂e</span></div>
-                <div class="kpi-sub">Validé</div>
-            </div>
-
-            <div class="kpi-card eco">
-                <div class="kpi-title">Prévision Carbone (En direct)</div>
-                <div class="kpi-value" id="kpi-prevu">0 <span style="font-size: 1rem;">kg CO₂e</span></div>
-                <div class="kpi-sub" id="kpi-prevu-sub">En attente du chef de chantier...</div>
-            </div>
+            <div class="kpi-card"><div class="kpi-title">Phasage</div><div class="kpi-value">Phase 1</div><div style="color:#95a5a6;font-size:0.85rem;">Zone Ouest (Secteur 1)</div></div>
+            <div class="kpi-card eco"><div class="kpi-title">Carbone Réalisé</div><div class="kpi-value">420 kg</div><div style="color:#95a5a6;font-size:0.85rem;">Cumul validé</div></div>
+            <div class="kpi-card eco"><div class="kpi-title">Prévision Carbone</div><div id="kpi-prevu" class="kpi-value">0 kg</div><div id="kpi-prevu-sub" style="color:#95a5a6;font-size:0.85rem;">En attente...</div></div>
         </div>
-
-        <div class="map-section">
-            <div class="map-header">
-                <h2>📍 Plan d'exécution interactif</h2>
-                <span style="color: #7f8c8d; font-size: 0.85rem;">Pincez pour zoomer, touchez les zones.</span>
-            </div>
-            
+        <div style="background:white; padding:15px; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+            <h2 style="margin-top:0; font-size:1.1rem; color:var(--city-blue);">📍 Plan d'exécution interactif (Rue Paul Doumer)</h2>
             <div id="map-container"></div>
         </div>
     </main>
 
     <script>
-        // --- 1. CONFIGURATION DU PLAN FLUIDE (LEAFLET) ---
+        const map = L.map('map-container', {crs: L.CRS.Simple, minZoom: -2, maxZoom: 2});
+        const bounds = [[0, 0], [1000, 3500]]; L.imageOverlay('plan_yerres.jpg', bounds).addTo(map); map.fitBounds(bounds);
         
-        // On crée la carte avec le mode L.CRS.Simple (Spécial images plates / pas de coordonnées GPS)
-        const map = L.map('map-container', {
-            crs: L.CRS.Simple,
-            minZoom: -2,
-            maxZoom: 2,
-            zoomControl: true
-        });
-
-        // Dimensions virtuelles du plan (Hauteur x Largeur estimée du panorama)
-        const bounds = [[0, 0], [1000, 3500]];
-        
-        // On place votre image de fond ! (Assurez-vous qu'elle s'appelle bien plan_yerres.jpg)
-        const image = L.imageOverlay('plan_yerres.jpg', bounds).addTo(map);
-        
-        // On cadre la vue pour voir tout le plan d'un coup au chargement
-        map.fitBounds(bounds);
-
-        // --- 2. CRÉATION DES ZONES INTERACTIVES ---
-        
-        // Le style graphique des zones
-        const styleZone = { color: '#27ae60', weight: 3, dashArray: '8, 8', fillColor: '#27ae60', fillOpacity: 0.2 };
-        const styleZoneActive = { color: '#e67e22', weight: 4, dashArray: '0', fillColor: '#e67e22', fillOpacity: 0.4 };
-
-        // Fonction pour créer une zone avec sa popup
-        function creerZone(coordonnees, titre, debut, fin, bruit) {
-            const zone = L.rectangle(coordonnees, styleZone).addTo(map);
-            
-            // Le contenu de la bulle d'info
-            const htmlPopup = `
-                <h4 class="popup-title">${titre}</h4>
-                <b>📅 Début :</b> ${debut}<br>
-                <b>🏁 Fin prévue :</b> ${fin}<br>
-                <hr style="border: 0; border-top: 1px solid #ddd; margin: 10px 0;">
-                <b>🔊 Nuisances :</b><br> ${bruit}
-            `;
-            
-            zone.bindPopup(htmlPopup);
-            
-            // Effets visuels quand on touche/clique sur la zone
-            zone.on('popupopen', () => zone.setStyle(styleZoneActive));
-            zone.on('popupclose', () => zone.setStyle(styleZone));
+        function addZ(coords, title, d, f, b) {
+            const z = L.rectangle(coords, {color:'#27ae60', weight:2, fillOpacity:0.2}).addTo(map);
+            z.bindPopup(`<div class="popup-title">${title}</div><b>📅 Début :</b> ${d}<br><b>🏁 Fin :</b> ${f}<hr style="border:0;border-top:1px solid #eee;margin:5px 0;"><b>🔊 Nuisance :</b> ${b}`);
+            z.on('popupopen', () => z.setStyle({fillOpacity:0.5, color:'#e67e22'}));
+            z.on('popupclose', () => z.setStyle({fillOpacity:0.2, color:'#27ae60'}));
         }
+        addZ([[300, 150], [800, 900]], "Zone Ouest - P1", "11/03", "15/03", "🔴 Forte");
+        addZ([[250, 1050], [650, 1950]], "Zone Centre - P2", "18/03", "22/03", "🟢 Faible");
+        addZ([[250, 2100], [850, 2850]], "Zone Est - P3", "25/03", "29/03", "🟠 Modérée");
 
-        // Ajout des 3 zones sur le plan (Les coordonnées sont [Y-bas, X-gauche], [Y-haut, X-droite])
-        creerZone([[300, 150], [800, 900]], "🚧 Zone Ouest - Phase 1", "11/03/2024", "15/03/2024", "🔴 Oui (Marteaux-piqueurs)");
-        creerZone([[250, 1050], [650, 1950]], "⚡ Zone Centre - Phase 2", "18/03/2024", "22/03/2024", "🟢 Non (Tirage de câbles)");
-        creerZone([[250, 2100], [850, 2850]], "🏗️ Zone Est - Phase 3", "25/03/2024", "29/03/2024", "🟠 Modéré (Levage)");
-
-
-        // --- 3. CONNEXION MQTT (RÉCEPTION DU BILAN CARBONE) ---
-        const BROKER_WS_URL = 'wss://broker.hivemq.com:8884/mqtt';
-        const TOPIC_CAMION = 'votre-entreprise/flotte/camion-1/journalier';
-        const client = mqtt.connect(BROKER_WS_URL);
-
-        client.on('connect', () => client.subscribe(TOPIC_CAMION));
-
-        client.on('message', (topic, message) => {
-            try {
-                const data = JSON.parse(message.toString());
-                
-                if (data.co2Prevu !== undefined) {
-                    const kpiPrevu = document.getElementById('kpi-prevu');
-                    const kpiSub = document.getElementById('kpi-prevu-sub');
-                    
-                    kpiPrevu.innerHTML = `${data.co2Prevu} <span style="font-size: 1rem;">kg CO₂e</span>`;
-                    
-                    if (data.co2Prevu === "0.0") {
-                        // Cas d'une purge réseau envoyée par le chef
-                        kpiPrevu.style.color = '#7f8c8d'; 
-                        kpiSub.style.color = '#7f8c8d';
-                        kpiSub.innerText = "Données réinitialisées";
-                    } else {
-                        // Cas d'une mise à jour normale
-                        kpiPrevu.style.color = '#e74c3c'; 
-                        kpiSub.style.color = '#e74c3c';
-                        kpiSub.innerText = "⚠️ Planning actualisé à l'instant par le Chef";
-                        
-                        setTimeout(() => {
-                            kpiPrevu.style.color = 'var(--eco-green)';
-                            kpiSub.style.color = '#95a5a6';
-                            kpiSub.innerText = "Calcul basé sur le matériel, transport et GNR";
-                        }, 2500);
-                    }
-                }
-            } catch (e) { console.error(e); }
+        const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+        client.on('connect', () => client.subscribe('votre-entreprise/flotte/camion-1/journalier'));
+        client.on('message', (t, m) => {
+            const data = JSON.parse(m.toString());
+            if (data.co2Prevu !== undefined) {
+                const k = document.getElementById('kpi-prevu'); const s = document.getElementById('kpi-prevu-sub');
+                k.innerText = `${data.co2Prevu} kg`; k.style.color = (data.co2Prevu === "0.0") ? '#7f8c8d' : '#e74c3c';
+                s.innerText = (data.co2Prevu === "0.0") ? "Données purgées" : "⚠️ Actualisé par le chef";
+                setTimeout(() => { k.style.color = (data.co2Prevu === "0.0") ? '#7f8c8d' : '#27ae60'; s.style.color = '#95a5a6'; }, 2500);
+            }
         });
     </script>
 </body>
